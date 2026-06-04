@@ -1,34 +1,35 @@
 # Observability Setup
 
-The observability setup should focus on a small set of high-signal telemetry that quickly detects customer-impacting failures, transaction risk, and infrastructure degradation without creating excessive alert noise.
+The observability setup focuses on a small set of high-signal Datadog alerts that detect customer-impacting failures, transaction risk, and infrastructure degradation without creating excessive alert noise.
 
 **Observability tool:** Datadog
 
 ## Setup
-Datadog should be configured to collect telemetry across the main production layers:
+
+Datadog should collect telemetry across the main production layers:
+
 - Infrastructure: AWS, EKS, Kubernetes nodes, pods, and load balancers
 - Application: Elixir runtime, GraphQL API performance, errors, and logs
-- Database: PostgreSQL on RDS health, latency, saturation, and backup status
+- Database: PostgreSQL on RDS health and availability
 - Business workflows: transaction creation, transaction state transitions, failed jobs, and stuck workflows
 
 ## Tagging
-Use consistent tags everywhere:
+
+Use consistent tags where the telemetry supports them:
+
 - `env`
 - `service`
-- `version`
-- `team`
-- `cluster`
-- `namespace`
-- `region`
+- `component`
+- `tier`
 
-Consistent tags make it easier to filter incidents by environment, deployment version, service, namespace, or region.
+These tags make it easier to filter incidents by environment, service, platform component, or business criticality.
 
 ## Structured Logs
+
 Application logs should be structured and include correlation fields:
 
 - `request_id`
 - `trace_id`
-- `user_id` or account identifier, where safe
 - GraphQL operation name
 - Transaction or workflow ID, where safe
 - Error reason or category
@@ -44,58 +45,45 @@ I would divide alerting into two severities:
 ## 🚨 Critical Alerts
 Critical alerts should trigger only when a core business path is actively failing or production availability is at immediate risk.
 
-### 1. Multi-Window, Multi-Burn-Rate SLO Alert
-**Metric:** Core transaction success rate (SLI).
+### 1. Monthly Transaction SLO Error Budget Exhaustion
+**Metric:** Core transaction success SLO error budget.
 
-**Threshold:** Trigger when a meaningful portion of the monthly transaction error budget is consumed in a short window, such as 2% within 1 hour.
-
-**Why it matters:**  
-A static error-rate threshold may not work well for a low-volume platform. While a single intermittent network glitch shouldn't page an engineer, repeated transaction failures or a sustained burn of our error budget in a short period indicates an issue that requires immediate incident response.
-
-A burn-rate alert detects the pace of reliability degradation and helps the team respond before more material transactions are impacted.
-
-### 2. End-to-End Synthetic Transaction Failure
-**Metric:** Datadog Browser or API Synthetic test status.
-
-**Threshold:** Trigger when the end-to-end synthetic test fails consecutively from multiple locations or multiple test runs.
+**Threshold:** Trigger when more than 75% of the 30-day error budget has been consumed.
 
 **Why it matters:**  
-Because the platform is low frequency, there may be long periods with little or no real user traffic. Passive dashboards can look healthy simply because no one is using the system.
+For a low-frequency, high-value transaction platform, a large amount of consumed error budget can indicate reliability risk even when raw traffic volume is low. This alert highlights that the platform is approaching an unacceptable reliability position for critical transaction workflows.
 
-Synthetic tests proactively verify that critical flows still work, such as logging in, loading a private market view, and submitting a safe test transaction flow. This helps detect silent failures before a real high-value user is affected.
+### 2. External Synthetic Availability Check
+**Metric:** Datadog API Synthetic test status.
 
-### 3. Database Primary Unavailability or Storage Exhaustion
-**Metric:** RDS availability, failover state, connection health, and free storage space.
-
-**Threshold:** Trigger when the primary database is unreachable for more than 3 minutes (indicating an automated Multi-AZ failover has hung or failed), or when available storage drops below 10%.
+**Threshold:** Trigger when the synthetic HTTP check fails from multiple locations.
 
 **Why it matters:**  
-PostgreSQL on RDS is the source of truth for the platform. If the database is unavailable, out of storage, or unable to accept writes, core transaction workflows may fail immediately.
+The long-term goal is to validate important product flows such as login, market view loading, and a safe mock transaction. The current Terraform uses a simple GET request to an external portfolio site as a lightweight synthetic check so the alerting pipeline can be demonstrated and validated before a production-safe transaction test is available.
+
+### 3. Database Primary Unavailability
+**Metric:** RDS primary availability.
+
+**Threshold:** Trigger when the primary database appears unreachable.
+
+**Why it matters:**  
+PostgreSQL on RDS is the source of truth for the platform. If the primary database is unavailable or unable to accept writes, core transaction workflows may fail immediately.
 
 ### 4. No Healthy Application Pods
-**Metric:** Kubernetes deployment availability, ready pod count, and load balancer target health.
+**Metric:** Kubernetes deployment availability or ready pod count.
 
 **Threshold:** Trigger when there are no healthy application pods available to serve production traffic.
 
 **Why it matters:**  
 If no application pods are healthy, users cannot reliably access the platform even if the database and other infrastructure are healthy. This is a direct availability incident and should page immediately.
 
-### 5. Sustained 5xx or GraphQL Operation Failures
-**Metric:** HTTP 5xx error rate and GraphQL error metrics grouped by operation name.
+### 5. Sustained GraphQL Operation Failures
+**Metric:** GraphQL system error ratio grouped by operation name.
 
-**Threshold:** Trigger when backend errors remain above the agreed SLO threshold for a sustained period.
-
-**Why it matters:**  
-A single `/graphql` endpoint can hide which business workflow is failing, and GraphQL errors may appear inside successful HTTP responses. Monitoring individual GraphQL operations separately provides visibility into critical flows like login, market views, bid submissions, transaction updates, and admin workflows.
-
-### 6. Stuck or Failing Transaction Workflows
-**Metric:** Transaction state transitions, failed workflow count, and transaction-critical background job status.
-
-**Threshold:** Trigger when transactions remain in an intermediate state longer than expected, or when transaction-critical background jobs stop processing.
+**Threshold:** Trigger when systemic GraphQL errors exceed 5% of traffic for an operation over a sustained window.
 
 **Why it matters:**  
-Infrastructure can look healthy while a business workflow is broken. For a high-value transaction platform, stuck or failed transaction workflows are critical because they may require immediate intervention to protect correctness and client trust.
-
+A single `/graphql` endpoint can hide which business workflow is failing, and GraphQL errors may appear inside successful HTTP responses. Monitoring individual GraphQL operations separately provides visibility into critical flows like login, market views, transaction updates, and admin workflows.
 
 ## ⚠️ Warning Alerts
 Warning alerts should capture slow-burning regressions, early signs of capacity degradation, or anomalies. These require engineering attention during regular business hours to prevent them from changing into critical.
@@ -103,7 +91,7 @@ Warning alerts should capture slow-burning regressions, early signs of capacity 
 ### 1. Slow Error Budget Burn
 **Metric:** Monthly Error Budget Burn Rate.
 
-**Threshold:** Trigger when error budget is being consumed faster than expected over a longer window.
+**Threshold:** Trigger when error budget is being consumed faster than expected over a longer window (e.g. 24hours).
 
 **Why it matters:**  
 A slow burn may not represent an active outage, but it shows that reliability is trending in the wrong direction and should be reviewed before it threatens our monthly availability target.

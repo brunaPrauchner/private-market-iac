@@ -1,5 +1,5 @@
 # ==============================================================================
-# 1. MULTI-WINDOW, MULTI-BURN-RATE SLO ALERT
+# 1. MONTHLY TRANSACTION SLO ERROR BUDGET EXHAUSTION
 # ==============================================================================
 resource "datadog_monitor" "slo_burn_rate_critical" {
   name    = "[CRITICAL] [${upper(var.environment)}] Transaction SLO Error Budget Burning Fast"
@@ -16,7 +16,7 @@ resource "datadog_monitor" "slo_burn_rate_critical" {
     {{/is_alert}}
   EOT
 
- # Evaluates whether the remaining error budget drops below 75%
+  # Evaluates whether more than 75% of the monthly error budget has been spent.
   query = "error_budget(\"684def97ccd95fafaed085dfaa505aeb\").over(\"30d\") > 75"
 
   monitor_thresholds {
@@ -34,6 +34,11 @@ resource "datadog_synthetics_test" "e2e_transaction_check" {
   subtype = "http"
   status  = "live"
 
+  # The long-term idea is to validate login, market view loading, and a safe
+  # mock transaction flow. To demonstrate the alert pipeline first, this started
+  # as a request to a non-existent website so the monitor would trigger, then was
+  # changed to a simple GET against my portfolio site to prove external synthetic
+  # availability checks work.
   request_definition {
     method = "GET"
     url    = "https://brunaprauchner.com/"
@@ -105,7 +110,39 @@ resource "datadog_monitor" "rds_primary_unavailable" {
 }
 
 # ==============================================================================
-# 4. SUSTAINED GRAPHQL MUTATION FAILURES
+# 4. NO HEALTHY APPLICATION PODS
+# ==============================================================================
+resource "datadog_monitor" "no_healthy_application_pods" {
+  name    = "[CRITICAL] [${upper(var.environment)}] No Healthy Application Pods"
+  type    = "metric alert"
+  message = <<-EOT
+    {{#is_alert}}
+    **CRITICAL ALERT:** No healthy application pods are available!
+
+    * **Deployment:** ${var.application_deployment_name}
+    * **Namespace:** ${var.kubernetes_namespace}
+    * **Impact:** Users may be unable to access the platform even if downstream infrastructure is healthy.
+
+    Notify: ${var.notification_channel}
+    Runbook: https://platform.internal
+    {{/is_alert}}
+  EOT
+
+  query = "max(last_5m):sum:kubernetes_state.deployment.replicas_available{env:${var.environment},kube_deployment:${var.application_deployment_name},kube_namespace:${var.kubernetes_namespace}} < 1"
+
+  monitor_thresholds {
+    critical = 1.0
+  }
+
+  evaluation_delay    = 60
+  no_data_timeframe   = 10
+  require_full_window = true
+
+  tags = ["env:${var.environment}", "service:monolith", "component:kubernetes", "tier:application"]
+}
+
+# ==============================================================================
+# 5. SUSTAINED GRAPHQL MUTATION FAILURES
 # ==============================================================================
 locals {
   graphql_errors = "sum(last_5m):sum:trace.graphql.errors{env:${var.environment},error_type:systemic}by{graphql.operation}.as_rate()"
