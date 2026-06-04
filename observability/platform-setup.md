@@ -42,7 +42,7 @@ I would divide alerting into two severities:
 - **Critical:** Require immediate investigation because a core user or business function is broken, or production availability is severely threatened.
 - **Warning:** non-urgent notifications or a ticket queue for investigation during business hours.
 
-## 🚨 Critical Alerts
+## Critical Alerts
 Critical alerts should trigger only when a core business path is actively failing or production availability is at immediate risk.
 
 ### 1. Monthly Transaction SLO Error Budget Exhaustion
@@ -85,7 +85,7 @@ If no application pods are healthy, users cannot reliably access the platform ev
 **Why it matters:**  
 A single `/graphql` endpoint can hide which business workflow is failing, and GraphQL errors may appear inside successful HTTP responses. Monitoring individual GraphQL operations separately provides visibility into critical flows like login, market views, transaction updates, and admin workflows.
 
-## ⚠️ Warning Alerts
+## Warning Alerts
 Warning alerts should capture slow-burning regressions, early signs of capacity degradation, or anomalies. These require engineering attention during regular business hours to prevent them from changing into critical.
 
 ### 1. Slow Error Budget Burn

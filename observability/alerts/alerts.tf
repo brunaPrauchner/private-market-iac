@@ -2,7 +2,7 @@
 # 1. MONTHLY TRANSACTION SLO ERROR BUDGET EXHAUSTION
 # ==============================================================================
 resource "datadog_monitor" "slo_burn_rate_critical" {
-  name    = "[CRITICAL] [${upper(var.environment)}] Transaction SLO Error Budget Burning Fast"
+  name    = "[CRITICAL] [${upper(var.environment)}] Transaction SLO Error Budget Exhaustion"
   type    = "slo alert"
   message = <<-EOT
     {{#is_alert}}
