@@ -58,3 +58,27 @@ variable "node_desired_size" {
   type        = number
   default     = 1
 }
+
+variable "deploy_app" {
+  description = "Whether to deploy Kubernetes app resources. Enable this from a host that can reach the private EKS API."
+  type        = bool
+  default     = false
+}
+
+variable "kubernetes_api_host" {
+  description = "Optional Kubernetes API host override, used when accessing the private EKS API through an SSM tunnel."
+  type        = string
+  default     = null
+}
+
+variable "kubernetes_tls_server_name" {
+  description = "Optional TLS server name for the Kubernetes API, used when tunneling the private EKS endpoint locally."
+  type        = string
+  default     = null
+}
+
+variable "cluster_admin_principal_arn" {
+  description = "Optional IAM principal ARN to grant EKS cluster-admin access for local Terraform or kubectl use."
+  type        = string
+  default     = null
+}
