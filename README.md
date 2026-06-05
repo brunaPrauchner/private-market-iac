@@ -9,4 +9,4 @@ This repository contains infrastructure configuration and supporting documentati
 - [Observability Setup](./observability/platform-setup.md)
 - [Issue Investigation: Elevated Error Rate](./issue-investigation/elevated-error-rates.md)
 - [Issue Investigation: Slow PostgreSQL Query](./issue-investigation/slow-postgresql-query.md)
-- [Infrastructure Setup](./infra/infra-setup.md)
+- [Infrastructure Setup](./infra/README.md)
