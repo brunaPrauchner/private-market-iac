@@ -14,9 +14,10 @@ variable "private_subnet_ids" {
   type        = list(string)
 }
 
-variable "vpc_endpoint_ids" {
-  description = "VPC endpoint IDs required before private worker nodes are created."
-  type        = list(string)
+variable "admin_security_group_id" {
+  description = "Security group ID allowed to reach the private EKS API endpoint."
+  type        = string
+  default     = null
 }
 
 variable "tags" {
