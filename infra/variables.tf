@@ -82,3 +82,9 @@ variable "cluster_admin_principal_arn" {
   type        = string
   default     = null
 }
+
+variable "log_retention_days" {
+  description = "Retention period for CloudWatch log groups."
+  type        = number
+  default     = 7
+}

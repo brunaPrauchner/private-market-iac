@@ -97,3 +97,12 @@ module "app" {
 
   depends_on = [module.eks]
 }
+
+module "observability" {
+  source = "./modules/observability"
+
+  name               = local.name
+  cluster_name       = module.eks.cluster_name
+  log_retention_days = var.log_retention_days
+  tags               = local.tags
+}
