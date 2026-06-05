@@ -22,3 +22,13 @@ output "eks_cluster_endpoint" {
   description = "Private EKS API endpoint."
   value       = module.eks.cluster_endpoint
 }
+
+output "observability_log_group" {
+  description = "CloudWatch log group used for application logs."
+  value       = module.observability.app_log_group_name
+}
+
+output "observability_cpu_alarm" {
+  description = "CloudWatch alarm for high EKS node CPU."
+  value       = module.observability.node_cpu_alarm_name
+}
