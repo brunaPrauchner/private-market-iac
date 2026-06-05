@@ -36,11 +36,32 @@ Application logs should be structured and include correlation fields:
 
 Logs should avoid sensitive data such as authentication tokens, personal information, financial details, and full GraphQL variables.
 
-## Alerts 
+## SLA and SLO Strategy
+
+I would define a small set of service-level objectives around the user-visible paths that matter most to the business. Because the platform has low transaction frequency but high transaction value, the SLOs should not only measure average platform health; they should protect the ability to complete a critical transaction when one happens.
+
+The SLA should be framed as the external customer commitment, while SLOs are the internal operating targets used for alerting, error budget tracking, and reliability planning. I would start with these SLOs and refine the exact thresholds after collecting enough production baseline data:
+
+| Area | SLO Target | Measurement |
+| --- | --- | --- |
+| API availability | 99.9% monthly availability | Successful synthetic checks and successful API responses for production GraphQL traffic |
+| API latency | p99 under 1.5 seconds for critical GraphQL operations | Request duration by GraphQL operation name |
+| API error rate | Less than 1% 5xx or system-level GraphQL errors | HTTP 5xx responses plus GraphQL execution errors that represent backend failure |
+| Core transaction workflow | 99.5% successful completion for eligible transaction attempts | Transaction created and moved through expected state transitions without system failure |
+| EKS application availability | At least one healthy application replica available across production availability zones | Kubernetes deployment readiness, pod health, and load balancer target health |
+| Database availability | 99.9% primary database availability | RDS availability, write connectivity, failover health, and connection pool health |
+
+For alerting, I would separate immediate outage detection from error budget management:
+
+- Page immediately when a critical user path is unavailable, the database primary cannot accept writes, there are no healthy application pods, or synthetic checks fail from multiple locations.
+- Use burn-rate alerts when SLOs are being consumed faster than expected, even if the platform is not fully down.
+- Use warning alerts for slow degradation, such as rising p99 latency, increased GraphQL system errors, database saturation, or pod scheduling pressure.
+
+## Alerts
 Alerts should be designed around user impact and business risk.
 I would divide alerting into two severities:
 - **Critical:** Require immediate investigation because a core user or business function is broken, or production availability is severely threatened.
-- **Warning:** non-urgent notifications or a ticket queue for investigation during business hours.
+- **Warning:** Non-urgent notifications or a ticket queue for investigation during business hours.
 
 ## Critical Alerts
 Critical alerts should trigger only when a core business path is actively failing or production availability is at immediate risk.
@@ -91,7 +112,7 @@ Warning alerts should capture slow-burning regressions, early signs of capacity 
 ### 1. Slow Error Budget Burn
 **Metric:** Monthly Error Budget Burn Rate.
 
-**Threshold:** Trigger when error budget is being consumed faster than expected over a longer window (e.g. 24hours).
+**Threshold:** Trigger when error budget is being consumed faster than expected over a longer window (e.g. 24 hours).
 
 **Why it matters:**  
 A slow burn may not represent an active outage, but it shows that reliability is trending in the wrong direction and should be reviewed before it threatens our monthly availability target.
@@ -214,3 +235,13 @@ Dependencies should be grouped based on whether they are in the critical path of
 - Current and previous application versions
 - Error rate and latency before and after deployment
 - Pod restarts or rollout failures after deployment
+
+## Screenshots
+
+![Datadog alerts overview](screenshots/alerts.png)
+
+![Synthetic monitoring alert firing details](screenshots/synthetic-monitoring-firing-2.png)
+
+This synthetic monitor was intentionally configured to fire so the alerting pipeline could be demonstrated end to end. In this take-home setup, the Terraform points the check at a simple external website GET request; in production, this should be replaced with safe checks for real platform paths such as login, private market view loading, and a non-mutating or mock transaction workflow.
+
+![Synthetic monitoring alert firing](screenshots/slo-datadog.png)
